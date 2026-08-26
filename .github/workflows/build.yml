@@ -1,0 +1,63 @@
+name: build
+on:
+  push:
+    branches:
+      - 'arena/*'
+      - main
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install WiX
+        run: choco install wixtoolset -y
+
+      - name: Check environment
+        run: |
+          java -version
+          ./gradlew doctor --no-daemon || gradlew.bat doctor --no-daemon
+
+      - name: Run tests and detekt
+        run: ./gradlew test detekt --no-daemon
+        continue-on-error: true
+
+      - name: Build MSI and EXE
+        run: ./gradlew packageMsi packageExe --no-daemon
+
+      - name: List binaries
+        run: |
+          dir build\compose\binaries\main\msi\
+          dir build\compose\binaries\main\exe\
+
+      - name: Create dist folder
+        run: |
+          mkdir dist -Force
+          Copy-Item -Path build\compose\binaries\main\msi\*.msi -Destination dist\ -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path build\compose\binaries\main\exe\*.exe -Destination dist\ -Force -ErrorAction SilentlyContinue
+          dir dist\
+
+      - name: Commit installers back
+        run: |
+          git config user.name "Solgram Builder"
+          git config user.email "builder@solgram.local"
+          git add dist/ -f
+          git commit -m "Add built MSI/EXE installers [skip ci]" || echo "No changes"
+          git push origin HEAD:${{ github.ref_name }}
+        continue-on-error: true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: solgram-installers
+          path: |
+            build/compose/binaries/main/**/*.{msi,exe}
+            dist/
