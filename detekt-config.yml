@@ -1,0 +1,12 @@
+config:
+  validation: true
+complexity:
+  active: true
+naming:
+  active: true
+style:
+  active: true
+custom:
+  NoForwardMessagesRule:
+    active: true
+    autoCorrect: false

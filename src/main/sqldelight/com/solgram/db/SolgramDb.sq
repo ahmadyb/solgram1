@@ -1,0 +1,195 @@
+CREATE TABLE chat (
+    id INTEGER PRIMARY KEY NOT NULL,
+    title TEXT NOT NULL,
+    username TEXT,
+    type TEXT NOT NULL,
+    isPinned INTEGER NOT NULL DEFAULT 0,
+    isMuted INTEGER NOT NULL DEFAULT 0,
+    isArchived INTEGER NOT NULL DEFAULT 0,
+    unreadCount INTEGER NOT NULL DEFAULT 0,
+    lastMessageDate INTEGER NOT NULL DEFAULT 0,
+    photoPath TEXT
+);
+
+CREATE TABLE message (
+    id INTEGER NOT NULL,
+    chatId INTEGER NOT NULL,
+    senderId INTEGER NOT NULL,
+    senderName TEXT NOT NULL,
+    text TEXT NOT NULL,
+    date INTEGER NOT NULL,
+    editDate INTEGER,
+    replyToId INTEGER,
+    isOutgoing INTEGER NOT NULL DEFAULT 0,
+    isPinned INTEGER NOT NULL DEFAULT 0,
+    viewCount INTEGER NOT NULL DEFAULT 0,
+    mediaPath TEXT,
+    mediaType TEXT,
+    PRIMARY KEY (id, chatId),
+    FOREIGN KEY (chatId) REFERENCES chat(id) ON DELETE CASCADE
+);
+
+CREATE VIRTUAL TABLE message_fts USING fts5(
+    content, sender_name, chat_title,
+    content='message', content_rowid='id'
+);
+
+CREATE TABLE detection (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chain TEXT NOT NULL,
+    address TEXT NOT NULL,
+    chatId INTEGER NOT NULL,
+    messageId INTEGER NOT NULL,
+    detectedAt INTEGER NOT NULL,
+    sourceChannel TEXT NOT NULL,
+    trustScore INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX detection_address_idx ON detection(address);
+CREATE INDEX detection_chat_idx ON detection(chatId);
+CREATE INDEX detection_time_idx ON detection(detectedAt);
+
+CREATE TABLE forward_rule (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    sourceChatIds TEXT NOT NULL, -- JSON array
+    destinationChatIds TEXT NOT NULL, -- JSON array
+    extractionMode TEXT NOT NULL,
+    regexPattern TEXT,
+    prefix TEXT NOT NULL DEFAULT '',
+    minTrust INTEGER NOT NULL DEFAULT 0,
+    duplicateWindowSeconds INTEGER NOT NULL DEFAULT 3600,
+    sendIntervalMs INTEGER NOT NULL DEFAULT 1000,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    conditions TEXT -- JSON
+);
+
+CREATE TABLE rule_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ruleId TEXT NOT NULL,
+    messageId INTEGER,
+    chatId INTEGER,
+    result TEXT NOT NULL, -- FIRE, SUPPRESSED, SKIP
+    reason TEXT,
+    timestamp INTEGER NOT NULL
+);
+
+CREATE TABLE price_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    address TEXT NOT NULL,
+    chain TEXT NOT NULL,
+    priceUsd REAL NOT NULL,
+    marketCap REAL,
+    liquidity REAL,
+    timestamp INTEGER NOT NULL,
+    athPrice REAL
+);
+
+CREATE INDEX price_history_address_idx ON price_history(address);
+CREATE INDEX price_history_time_idx ON price_history(timestamp);
+
+CREATE TABLE watched_wallet_holdings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    walletAddress TEXT NOT NULL,
+    tokenAddress TEXT NOT NULL,
+    chain TEXT NOT NULL,
+    balance REAL NOT NULL,
+    symbol TEXT,
+    firstSeenAt INTEGER NOT NULL,
+    lastUpdatedAt INTEGER NOT NULL
+);
+
+CREATE TABLE sentiment_tag (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    messageId INTEGER NOT NULL,
+    address TEXT NOT NULL,
+    sentiment TEXT NOT NULL,
+    keywords TEXT,
+    timestamp INTEGER NOT NULL
+);
+
+CREATE TABLE channel_trust (
+    channelId INTEGER PRIMARY KEY NOT NULL,
+    channelName TEXT NOT NULL,
+    currentTrust INTEGER NOT NULL,
+    suggestedTrust INTEGER,
+    suggestionReason TEXT,
+    lastManualSetAt INTEGER NOT NULL DEFAULT 0,
+    totalCalls INTEGER NOT NULL DEFAULT 0,
+    hitRate2x REAL NOT NULL DEFAULT 0,
+    avgAthMultiple REAL NOT NULL DEFAULT 0
+);
+
+CREATE TABLE settings (
+    key TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL
+);
+
+-- Queries
+allPinnedFirst:
+SELECT * FROM chat ORDER BY isPinned DESC, lastMessageDate DESC;
+
+forChat:
+SELECT * FROM message WHERE chatId = ? ORDER BY date DESC LIMIT ? OFFSET ?;
+
+chatById:
+SELECT * FROM chat WHERE id = ?;
+
+searchChats:
+SELECT * FROM chat WHERE title LIKE '%' || ? || '%' OR username LIKE '%' || ? || '%' ORDER BY lastMessageDate DESC;
+
+recentDetections:
+SELECT * FROM detection ORDER BY detectedAt DESC LIMIT ?;
+
+detectionsForAddress:
+SELECT * FROM detection WHERE address = ? ORDER BY detectedAt ASC;
+
+detectionsByChain:
+SELECT * FROM detection WHERE chain = ? ORDER BY detectedAt DESC LIMIT ?;
+
+priceHistoryForAddress:
+SELECT * FROM price_history WHERE address = ? ORDER BY timestamp ASC;
+
+latestPrice:
+SELECT * FROM price_history WHERE address = ? ORDER BY timestamp DESC LIMIT 1;
+
+allRules:
+SELECT * FROM forward_rule;
+
+ruleById:
+SELECT * FROM forward_rule WHERE id = ?;
+
+insertChat:
+INSERT OR REPLACE INTO chat(id, title, username, type, isPinned, isMuted, isArchived, unreadCount, lastMessageDate, photoPath)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+insertMessage:
+INSERT OR REPLACE INTO message(id, chatId, senderId, senderName, text, date, editDate, replyToId, isOutgoing, isPinned, viewCount, mediaPath, mediaType)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+insertDetection:
+INSERT INTO detection(chain, address, chatId, messageId, detectedAt, sourceChannel, trustScore)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+insertPrice:
+INSERT INTO price_history(address, chain, priceUsd, marketCap, liquidity, timestamp, athPrice)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+getSetting:
+SELECT value FROM settings WHERE key = ?;
+
+setSetting:
+INSERT OR REPLACE INTO settings(key, value) VALUES (?, ?);
+
+-- Size dashboard queries
+dbSize:
+SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size();
+
+messageCount:
+SELECT COUNT(*) FROM message;
+
+mediaCount:
+SELECT COUNT(*) FROM message WHERE mediaPath IS NOT NULL;
+
+priceHistoryCount:
+SELECT COUNT(*) FROM price_history;
