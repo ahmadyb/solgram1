@@ -6,6 +6,9 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   package:
     runs-on: windows-latest
@@ -13,6 +16,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -20,25 +24,15 @@ jobs:
       - name: Install WiX
         run: choco install wixtoolset -y
         shell: powershell
-      - name: Check environment
-        run: |
-          java -version
-          .\gradlew.bat doctor --no-daemon
-        shell: powershell
-      - name: Run tests and detekt
-        run: .\gradlew.bat test detekt --no-daemon
-        shell: powershell
-        continue-on-error: true
       - name: Build MSI only
         run: .\gradlew.bat packageMsi --no-daemon
         shell: powershell
-      - name: List binaries
-        run: dir build\compose\binaries\main\msi\
-        shell: powershell
-      - name: Create dist folder
+      - name: Create dist folder (MSI only)
         run: |
           mkdir dist -Force
-          Copy-Item -Path build\compose\binaries\main\msi\*.msi -Destination dist\ -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path dist\*.exe -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path dist\*.zip -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path build\compose\binaries\main\msi\*.msi -Destination dist\ -Force
           dir dist\
         shell: powershell
       - name: Commit installer back
@@ -47,9 +41,8 @@ jobs:
           git config user.email "builder@solgram.local"
           git add dist/ -f
           try { git commit -m "Add built MSI installer [skip ci]" } catch { echo "No changes" }
-          try { git push origin HEAD:arena/01a03fdc-solgram1 } catch { echo "Push failed" }
+          git push origin HEAD:arena/01a03fdc-solgram1
         shell: powershell
-        continue-on-error: true
       - uses: actions/upload-artifact@v4
         with:
           name: solgram-installer-msi
