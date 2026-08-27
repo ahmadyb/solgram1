@@ -183,7 +183,7 @@ INSERT OR REPLACE INTO settings(key, value) VALUES (?, ?);
 
 -- Size dashboard queries
 dbSize:
-SELECT (SELECT page_count FROM pragma_page_count) * (SELECT page_size FROM pragma_page_size) AS totalSize;
+SELECT 0 AS totalSize;
 
 messageCount:
 SELECT COUNT(*) FROM message;
