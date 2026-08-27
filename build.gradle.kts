@@ -93,20 +93,18 @@ compose.desktop {
                 bundleID = "com.solgram.app"
             }
 
-            // Fix "Failed to launch JVM" - REMOVED modules block to include ALL JDK modules automatically
-            // Previous minimal list caused JVM to fail before app starts, so no solgram.log created
-            // Including all modules increases MSI size (~150MB) but guarantees JVM launch
-            // If you want smaller MSI, uncomment and use extensive list below
-            // modules(
-            //     "java.base", "java.desktop", "java.sql", "java.naming", "java.net.http",
-            //     "java.management", "java.security.jgss", "java.security.sasl",
-            //     "java.logging", "java.xml", "java.instrument", "java.prefs", "java.scripting",
-            //     "jdk.unsupported", "jdk.unsupported.desktop",
-            //     "jdk.crypto.ec", "jdk.crypto.cryptoki", "jdk.zipfs",
-            //     "jdk.accessibility", "jdk.management", "jdk.security.auth",
-            //     "jdk.security.jgss", "java.transaction.xa", "java.rmi",
-            //     "jdk.charsets"
-            // )
+            // Optimized modules - 26 modules vs ALL (~70) to reduce size from 150MB to ~95-110MB
+            // Still includes all needed for Ktor, SQLite, JNA, coroutines
+            modules(
+                "java.base", "java.desktop", "java.sql", "java.naming", "java.net.http",
+                "java.management", "java.security.jgss", "java.security.sasl",
+                "java.logging", "java.xml", "java.instrument", "java.prefs", "java.scripting",
+                "jdk.unsupported", "jdk.unsupported.desktop",
+                "jdk.crypto.ec", "jdk.crypto.cryptoki", "jdk.zipfs",
+                "jdk.accessibility", "jdk.management", "jdk.security.auth",
+                "jdk.security.jgss", "java.transaction.xa", "java.rmi",
+                "jdk.charsets", "jdk.httpserver"
+            )
         }
     }
 }
