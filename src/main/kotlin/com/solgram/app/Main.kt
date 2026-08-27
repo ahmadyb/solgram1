@@ -47,6 +47,21 @@ import java.nio.file.Path
 import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
+    // Early file logging - create %APPDATA%\Solgram\solgram.log immediately
+    try {
+        val logDir = File(System.getProperty("user.home"), "AppData/Roaming/Solgram").apply { mkdirs() }
+        val logFile = File(logDir, "solgram.log")
+        val timestamp = java.time.Instant.now().toString()
+        logFile.appendText("[$timestamp] Solgram 2.0.0 starting with args: ${args.joinToString()}\n")
+        logFile.appendText("[$timestamp] Java: ${System.getProperty("java.version")} OS: ${System.getProperty("os.name")}\n")
+        // Redirect stdout/stderr to log file as well for debugging JVM launch issues
+        if ("--debug" in args) {
+            System.setProperty("solgram.debug", "true")
+        }
+    } catch (e: Exception) {
+        println("Failed to create log file: ${e.message}")
+    }
+
     Doctor.handleFlags(args)
     Doctor.startPhase("AppInit")
 
