@@ -30,51 +30,66 @@ jobs:
         run: .\gradlew.bat packageMsi --no-daemon
         shell: powershell
       
-      - name: Build Portable Distribution
+      - name: Build Portable (bundled JVM)
         run: .\gradlew.bat createDistributable --no-daemon
         shell: powershell
       
-      - name: Create Portable ZIP
+      - name: Build Ultra-Portable (jar only, smallest)
+        run: .\gradlew.bat ultraPortableJar --no-daemon
+        shell: powershell
+      
+      - name: Create ZIPs
         run: |
           $distDir = "build/compose/binaries/main/app"
-          $zipPath = "build/Solgram-2.0.0-portable.zip"
+          $portableZip = "build/Solgram-2.0.0-portable.zip"
           if (Test-Path $distDir) {
-            Compress-Archive -Path "$distDir\*" -DestinationPath $zipPath -Force
-            $size = (Get-Item $zipPath).Length / 1MB
-            Write-Host "Portable ZIP size: $size MB"
+            Compress-Archive -Path "$distDir\*" -DestinationPath $portableZip -Force
+            $s = (Get-Item $portableZip).Length / 1MB
+            Write-Host "Portable ZIP: $s MB"
           }
+          $ultraJar = "build/libs/Solgram-2.0.0-ultra-portable.jar"
+          $ultraZip = "build/Solgram-2.0.0-ultra-portable.zip"
+          if (Test-Path $ultraJar) {
+            Compress-Archive -Path $ultraJar -DestinationPath $ultraZip -Force
+            $s = (Get-Item $ultraZip).Length / 1MB
+            Write-Host "Ultra-Portable ZIP: $s MB"
+          }
+          dir build/*.zip
+          dir build/compose/binaries/main/msi/
         shell: powershell
       
-      - name: List artifacts
-        run: |
-          dir build\compose\binaries\main\msi\ -ErrorAction SilentlyContinue
-          dir build\*.zip -ErrorAction SilentlyContinue
-        shell: powershell
-      
-      - name: Upload MSI artifact
+      - name: Upload MSI
         uses: actions/upload-artifact@v4
         with:
           name: solgram-installer-msi
           path: build/compose/binaries/main/msi/*.msi
       
-      - name: Upload Portable artifact
+      - name: Upload Portable
         uses: actions/upload-artifact@v4
         with:
           name: solgram-portable-zip
           path: build/Solgram-2.0.0-portable.zip
       
-      - name: Create GitHub Release with MSI + Portable
+      - name: Upload Ultra-Portable
+        uses: actions/upload-artifact@v4
+        with:
+          name: solgram-ultra-portable-zip
+          path: build/Solgram-2.0.0-ultra-portable.zip
+      
+      - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v2.0.0-msi-${{ github.run_number }}
-          name: Solgram 2.0.0 - MSI + Portable
+          name: Solgram 2.0.0 - MSI + Portable + Ultra
           body: |
-            Two downloads:
-            1. MSI installer (~95-110 MB)
-            2. Portable ZIP (~90-100 MB) - Extract and run Solgram.exe, no install needed, faster for testing!
+            3 downloads:
+            1. MSI ~70-85 MB (installer, bundled JVM)
+            2. Portable ~70-85 MB (extract & run, bundled JVM)
+            3. Ultra-Portable ~35-50 MB (requires Java 17, smallest!)
             Commit: ${{ github.sha }}
           files: |
             build/compose/binaries/main/msi/*.msi
             build/Solgram-2.0.0-portable.zip
+            build/Solgram-2.0.0-ultra-portable.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
