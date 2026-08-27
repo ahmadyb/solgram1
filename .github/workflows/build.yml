@@ -9,9 +9,6 @@ on:
 jobs:
   package:
     runs-on: windows-latest
-    defaults:
-      run:
-        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,26 +26,31 @@ jobs:
       - name: Check environment
         run: |
           java -version
-          ./gradlew doctor --no-daemon
+          .\gradlew.bat doctor --no-daemon
+        shell: powershell
 
       - name: Run tests and detekt
-        run: ./gradlew test detekt --no-daemon
+        run: .\gradlew.bat test detekt --no-daemon
+        shell: powershell
         continue-on-error: true
 
       - name: Build MSI and EXE
-        run: ./gradlew packageMsi packageExe --no-daemon
+        run: .\gradlew.bat packageMsi packageExe --no-daemon
+        shell: powershell
 
       - name: List binaries
         run: |
-          ls -lh build/compose/binaries/main/msi/ || dir build/compose/binaries/main/msi/
-          ls -lh build/compose/binaries/main/exe/ || dir build/compose/binaries/main/exe/
+          dir build\compose\binaries\main\msi\
+          dir build\compose\binaries\main\exe\
+        shell: powershell
 
       - name: Create dist folder
         run: |
-          mkdir -p dist
-          cp build/compose/binaries/main/msi/*.msi dist/ 2>/dev/null || echo "No MSI"
-          cp build/compose/binaries/main/exe/*.exe dist/ 2>/dev/null || echo "No EXE"
-          ls -lh dist/
+          mkdir dist -Force
+          Copy-Item -Path build\compose\binaries\main\msi\*.msi -Destination dist\ -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path build\compose\binaries\main\exe\*.exe -Destination dist\ -Force -ErrorAction SilentlyContinue
+          dir dist\
+        shell: powershell
 
       - name: Commit installers back
         run: |
@@ -57,6 +59,7 @@ jobs:
           git add dist/ -f
           git commit -m "Add built MSI/EXE installers [skip ci]" || echo "No changes"
           git push origin HEAD:${{ github.ref_name }} || echo "Push failed"
+        shell: powershell
         continue-on-error: true
 
       - uses: actions/upload-artifact@v4
