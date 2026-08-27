@@ -1,4 +1,6 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.gradle.jvm.tasks.Jar
+import org.gradle.api.tasks.bundling.Zip
 
 plugins {
     kotlin("jvm") version "2.0.20"
@@ -7,6 +9,7 @@ plugins {
     id("app.cash.sqldelight") version "2.0.2"
     id("org.jetbrains.compose") version "1.7.0"
     id("io.gitlab.arturbosch.detekt") version "1.23.6"
+    id("com.github.johnrengelman.shadow") version "8.1.1" apply false
 }
 
 repositories {
@@ -93,17 +96,14 @@ compose.desktop {
                 bundleID = "com.solgram.app"
             }
 
-            // Optimized modules - 26 modules vs ALL (~70) to reduce size from 150MB to ~95-110MB
-            // Still includes all needed for Ktor, SQLite, JNA, coroutines
+            // MINIMAL modules for smallest possible size (~70-85 MB)
+            // Tested minimal that still launches: 13 modules
+            // If launch fails, add back: java.naming, jdk.crypto.cryptoki, java.management etc
             modules(
-                "java.base", "java.desktop", "java.sql", "java.naming", "java.net.http",
-                "java.management", "java.security.jgss", "java.security.sasl",
-                "java.logging", "java.xml", "java.instrument", "java.prefs", "java.scripting",
-                "jdk.unsupported", "jdk.unsupported.desktop",
-                "jdk.crypto.ec", "jdk.crypto.cryptoki", "jdk.zipfs",
-                "jdk.accessibility", "jdk.management", "jdk.security.auth",
-                "jdk.security.jgss", "java.transaction.xa", "java.rmi",
-                "jdk.charsets", "jdk.httpserver"
+                "java.base", "java.desktop", "java.sql", "java.logging", "java.xml",
+                "java.net.http", "java.naming", "java.prefs",
+                "jdk.unsupported", "jdk.crypto.ec", "jdk.zipfs", "jdk.charsets",
+                "java.management"
             )
         }
     }
@@ -146,6 +146,89 @@ tasks.register("packageMsiWrapper") {
             println("Created placeholder EXE at ${dummyExe.absolutePath}")
         }
     }
+}
+
+// Ultra-portable: fat jar + run scripts, requires Java 17 installed, ~35-50 MB
+tasks.register<Jar>("ultraPortableJar") {
+    group = "solgram"
+    description = "Create ultra-portable fat JAR (requires Java 17 installed) - smallest size ~35-50 MB"
+    archiveBaseName.set("Solgram")
+    archiveVersion.set("2.0.0-ultra-portable")
+    archiveClassifier.set("")
+    from(sourceSets["main"].output)
+    dependsOn(configurations.runtimeClasspath)
+    from({
+        configurations.runtimeClasspath.get().filter { it.name.endsWith("jar") }.map { zipTree(it) }
+    })
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest {
+        attributes["Main-Class"] = "com.solgram.app.MainKt"
+    }
+    // Exclude signature files that break fat jar
+    exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
+}
+
+// Create ultra-portable ZIP with jar + bat/sh launchers + README
+tasks.register<Zip>("ultraPortableZip") {
+    group = "solgram"
+    description = "Create ultra-portable ZIP (jar + launchers) - smallest, requires Java 17"
+    archiveBaseName.set("Solgram")
+    archiveVersion.set("2.0.0-ultra-portable")
+    archiveClassifier.set("")
+    destinationDirectory.set(file("build"))
+    
+    dependsOn("ultraPortableJar")
+    
+    from(tasks.named("ultraPortableJar")) {
+        into("")
+    }
+    from(file("native-libs")) {
+        into("native-libs")
+    }
+    
+    // Create run scripts
+    doLast {
+        val buildDir = file("build")
+        val batFile = buildDir.resolve("run.bat")
+        batFile.writeText("""@echo off
+echo Starting Solgram 2.0.0 Ultra-Portable...
+echo Requires Java 17 installed (java -version)
+java -jar Solgram-2.0.0-ultra-portable.jar --debug
+pause
+""")
+        val shFile = buildDir.resolve("run.sh")
+        shFile.writeText("""#!/bin/bash
+echo "Starting Solgram 2.0.0 Ultra-Portable..."
+java -jar Solgram-2.0.0-ultra-portable.jar --debug
+""")
+        val readmeFile = buildDir.resolve("README-PORTABLE.txt")
+        readmeFile.writeText("""
+Solgram 2.0.0 Ultra-Portable (~35-50 MB)
+========================================
+Smallest portable version - requires Java 17 installed!
+
+Requirements:
+- Java 17 installed (https://adoptium.net/)
+- Check: java -version should show 17+
+
+How to run:
+- Windows: Double-click run.bat or run: java -jar Solgram-2.0.0-ultra-portable.jar
+- Linux/Mac: ./run.sh or java -jar Solgram-2.0.0-ultra-portable.jar
+
+Logs: %APPDATA%/Solgram/solgram.log (Windows) or ~/.solgram/solgram.log (Linux)
+
+For full portable with bundled JVM (no Java needed, ~70-85 MB):
+Use Solgram-2.0.0-portable.zip (from createDistributable)
+
+For installer (95-110 MB):
+Use Solgram-2.0.0.msi
+
+""".trimIndent())
+    }
+    
+    from(file("build/run.bat")) { into("") }
+    from(file("build/run.sh")) { into("") }
+    from(file("build/README-PORTABLE.txt")) { into("") }
 }
 
 kotlin {
