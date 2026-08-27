@@ -93,10 +93,16 @@ compose.desktop {
                 bundleID = "com.solgram.app"
             }
 
+            // Fix "Failed to launch JVM" - include all modules needed by Ktor, SQLite, JNA, coroutines, serialization
+            // Previously missing java.naming, java.management, jdk.crypto.cryptoki etc caused JVM launch failure
             modules(
-                "java.base", "java.desktop", "java.sql",
-                "java.net.http", "jdk.unsupported", "java.logging",
-                "java.xml", "jdk.crypto.ec"
+                "java.base", "java.desktop", "java.sql", "java.naming", "java.net.http",
+                "java.management", "java.security.jgss", "java.security.sasl",
+                "java.logging", "java.xml", "java.instrument", "java.prefs",
+                "jdk.unsupported", "jdk.unsupported.desktop",
+                "jdk.crypto.ec", "jdk.crypto.cryptoki", "jdk.zipfs",
+                "jdk.accessibility", "jdk.management", "jdk.security.auth",
+                "jdk.security.jgss", "java.transaction.xa"
             )
         }
     }
