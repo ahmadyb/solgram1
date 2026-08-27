@@ -25,27 +25,56 @@ jobs:
       - name: Install WiX
         run: choco install wixtoolset -y
         shell: powershell
-      - name: Build MSI only
+      
+      - name: Build MSI
         run: .\gradlew.bat packageMsi --no-daemon
         shell: powershell
-      - name: List MSI
-        run: dir build\compose\binaries\main\msi\
+      
+      - name: Build Portable Distribution
+        run: .\gradlew.bat createDistributable --no-daemon
         shell: powershell
+      
+      - name: Create Portable ZIP
+        run: |
+          $distDir = "build/compose/binaries/main/app"
+          $zipPath = "build/Solgram-2.0.0-portable.zip"
+          if (Test-Path $distDir) {
+            Compress-Archive -Path "$distDir\*" -DestinationPath $zipPath -Force
+            $size = (Get-Item $zipPath).Length / 1MB
+            Write-Host "Portable ZIP size: $size MB"
+          }
+        shell: powershell
+      
+      - name: List artifacts
+        run: |
+          dir build\compose\binaries\main\msi\ -ErrorAction SilentlyContinue
+          dir build\*.zip -ErrorAction SilentlyContinue
+        shell: powershell
+      
       - name: Upload MSI artifact
         uses: actions/upload-artifact@v4
         with:
           name: solgram-installer-msi
           path: build/compose/binaries/main/msi/*.msi
-      - name: Create GitHub Release with MSI
+      
+      - name: Upload Portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: solgram-portable-zip
+          path: build/Solgram-2.0.0-portable.zip
+      
+      - name: Create GitHub Release with MSI + Portable
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v2.0.0-msi-${{ github.run_number }}
-          name: Solgram 2.0.0 MSI
+          name: Solgram 2.0.0 - MSI + Portable
           body: |
-            Solgram 2.0.0 - Native Kotlin Telegram Client
-            Built on windows-latest with JDK 17 + WiX
+            Two downloads:
+            1. MSI installer (~95-110 MB)
+            2. Portable ZIP (~90-100 MB) - Extract and run Solgram.exe, no install needed, faster for testing!
             Commit: ${{ github.sha }}
-            File: Solgram-2.0.0.msi (122 MB, JVM bundled)
-          files: build/compose/binaries/main/msi/*.msi
+          files: |
+            build/compose/binaries/main/msi/*.msi
+            build/Solgram-2.0.0-portable.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
