@@ -9,6 +9,9 @@ on:
 jobs:
   package:
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,11 +24,12 @@ jobs:
 
       - name: Install WiX
         run: choco install wixtoolset -y
+        shell: powershell
 
       - name: Check environment
         run: |
           java -version
-          ./gradlew doctor --no-daemon || gradlew.bat doctor --no-daemon
+          ./gradlew doctor --no-daemon
 
       - name: Run tests and detekt
         run: ./gradlew test detekt --no-daemon
@@ -36,15 +40,15 @@ jobs:
 
       - name: List binaries
         run: |
-          dir build\compose\binaries\main\msi\
-          dir build\compose\binaries\main\exe\
+          ls -lh build/compose/binaries/main/msi/ || dir build/compose/binaries/main/msi/
+          ls -lh build/compose/binaries/main/exe/ || dir build/compose/binaries/main/exe/
 
       - name: Create dist folder
         run: |
-          mkdir dist -Force
-          Copy-Item -Path build\compose\binaries\main\msi\*.msi -Destination dist\ -Force -ErrorAction SilentlyContinue
-          Copy-Item -Path build\compose\binaries\main\exe\*.exe -Destination dist\ -Force -ErrorAction SilentlyContinue
-          dir dist\
+          mkdir -p dist
+          cp build/compose/binaries/main/msi/*.msi dist/ 2>/dev/null || echo "No MSI"
+          cp build/compose/binaries/main/exe/*.exe dist/ 2>/dev/null || echo "No EXE"
+          ls -lh dist/
 
       - name: Commit installers back
         run: |
@@ -52,7 +56,7 @@ jobs:
           git config user.email "builder@solgram.local"
           git add dist/ -f
           git commit -m "Add built MSI/EXE installers [skip ci]" || echo "No changes"
-          git push origin HEAD:${{ github.ref_name }}
+          git push origin HEAD:${{ github.ref_name }} || echo "Push failed"
         continue-on-error: true
 
       - uses: actions/upload-artifact@v4
