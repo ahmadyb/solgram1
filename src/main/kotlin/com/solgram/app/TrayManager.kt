@@ -34,7 +34,7 @@ fun TrayManager(
 
         val popup = PopupMenu()
 
-        val showItem = MenuItem("Show Solgram")
+        val showItem = MenuItem("Show EVMGRAM")
         showItem.addActionListener { onShow() }
         popup.add(showItem)
 
@@ -48,7 +48,7 @@ fun TrayManager(
         quitItem.addActionListener { onQuit() }
         popup.add(quitItem)
 
-        val trayIcon = TrayIcon(image, "Solgram 2.0.0", popup)
+        val trayIcon = TrayIcon(image, "EVMGRAM 2.0.0", popup)
         trayIcon.isImageAutoSize = true
         trayIcon.addActionListener { onShow() }
 

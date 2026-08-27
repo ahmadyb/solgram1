@@ -121,7 +121,7 @@ object Exporter {
     private fun resolveDestination(dest: ExportDestination, baseName: String, format: ExportFormat): File {
         if (dest.saveAsFile != null) return dest.saveAsFile
         val folder = if (dest.useDefault) {
-            File(System.getProperty("user.home"), "AppData/Roaming/Solgram/exports").apply { mkdirs() }
+            File(System.getProperty("user.home"), "AppData/Roaming/EVMGRAM/exports").apply { mkdirs() }
         } else {
             dest.folder.apply { mkdirs() }
         }

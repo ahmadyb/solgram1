@@ -69,18 +69,18 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Dmg, TargetFormat.Deb, TargetFormat.AppImage)
 
-            packageName = "Solgram"
+            packageName = "EVMGRAM"
             packageVersion = "2.0.0"
-            description = "Personal Telegram client with trading signal intelligence"
-            copyright = "© 2025 Solgram"
-            vendor = "Solgram"
+            description = "EVM-focused Telegram client with trading signal intelligence"
+            copyright = "© 2025 EVMGRAM"
+            vendor = "EVMGRAM"
 
             appResourcesRootDir.set(project.layout.projectDirectory.dir("native-libs"))
 
             windows {
                 iconFile.set(project.file("src/main/resources/icon.ico"))
-                menuGroup = "Solgram"
-                upgradeUuid = "8f14e45f-ceea-467e-b7c3-1d9c2a3b0a11"
+                menuGroup = "EVMGRAM"
+                upgradeUuid = "9f25f56f-dffb-578f-c8d4-2e0d3b4c1b22" // New UUID for EVMGRAM
                 menu = true
                 shortcut = true
                 dirChooser = true
@@ -110,10 +110,10 @@ compose.desktop {
 }
 
 tasks.register("doctor") {
-    group = "solgram"
+    group = "evmgram"
     description = "Environment self-check, startup profiler report"
     doLast {
-        println("=== Solgram Doctor ===")
+        println("=== EVMGRAM Doctor ===")
         println("Java: ${System.getProperty("java.version")} / ${System.getProperty("java.vendor")}")
         println("OS: ${System.getProperty("os.name")} ${System.getProperty("os.version")}")
         println("Gradle: ${gradle.gradleVersion}")
@@ -127,7 +127,7 @@ tasks.register("doctor") {
 }
 
 tasks.register("packageMsiWrapper") {
-    group = "solgram"
+    group = "evmgram"
     description = "Wrapper to produce MSI on Windows or dummy on Linux"
     dependsOn("packageMsi", "packageExe")
     doLast {
@@ -135,13 +135,13 @@ tasks.register("packageMsiWrapper") {
         val exeDir = file("build/compose/binaries/main/exe")
         if (!msiDir.exists() || msiDir.listFiles()?.isEmpty() != false) {
             msiDir.mkdirs()
-            val dummyMsi = msiDir.resolve("Solgram-2.0.0.msi")
+            val dummyMsi = msiDir.resolve("EVMGRAM-2.0.0.msi")
             dummyMsi.writeText("This is a placeholder MSI. Build on Windows with WiX to produce real MSI. See README.")
             println("Created placeholder MSI at ${dummyMsi.absolutePath}")
         }
         if (!exeDir.exists() || exeDir.listFiles()?.isEmpty() != false) {
             exeDir.mkdirs()
-            val dummyExe = exeDir.resolve("Solgram-2.0.0.exe")
+            val dummyExe = exeDir.resolve("EVMGRAM-2.0.0.exe")
             dummyExe.writeText("This is a placeholder EXE. Build on Windows to produce real EXE.")
             println("Created placeholder EXE at ${dummyExe.absolutePath}")
         }
@@ -150,9 +150,9 @@ tasks.register("packageMsiWrapper") {
 
 // Ultra-portable: fat jar + run scripts, requires Java 17 installed, ~35-50 MB
 tasks.register<Jar>("ultraPortableJar") {
-    group = "solgram"
+    group = "evmgram"
     description = "Create ultra-portable fat JAR (requires Java 17 installed) - smallest size ~35-50 MB"
-    archiveBaseName.set("Solgram")
+    archiveBaseName.set("EVMGRAM")
     archiveVersion.set("2.0.0-ultra-portable")
     archiveClassifier.set("")
     from(sourceSets["main"].output)
@@ -164,15 +164,13 @@ tasks.register<Jar>("ultraPortableJar") {
     manifest {
         attributes["Main-Class"] = "com.solgram.app.MainKt"
     }
-    // Exclude signature files that break fat jar
     exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
 }
 
-// Create ultra-portable ZIP with jar + bat/sh launchers + README
 tasks.register<Zip>("ultraPortableZip") {
-    group = "solgram"
+    group = "evmgram"
     description = "Create ultra-portable ZIP (jar + launchers) - smallest, requires Java 17"
-    archiveBaseName.set("Solgram")
+    archiveBaseName.set("EVMGRAM")
     archiveVersion.set("2.0.0-ultra-portable")
     archiveClassifier.set("")
     destinationDirectory.set(file("build"))
@@ -186,24 +184,23 @@ tasks.register<Zip>("ultraPortableZip") {
         into("native-libs")
     }
     
-    // Create run scripts
     doLast {
         val buildDir = file("build")
         val batFile = buildDir.resolve("run.bat")
         batFile.writeText("""@echo off
-echo Starting Solgram 2.0.0 Ultra-Portable...
+echo Starting EVMGRAM 2.0.0 Ultra-Portable...
 echo Requires Java 17 installed (java -version)
-java -jar Solgram-2.0.0-ultra-portable.jar --debug
+java -jar EVMGRAM-2.0.0-ultra-portable.jar --debug
 pause
 """)
         val shFile = buildDir.resolve("run.sh")
         shFile.writeText("""#!/bin/bash
-echo "Starting Solgram 2.0.0 Ultra-Portable..."
-java -jar Solgram-2.0.0-ultra-portable.jar --debug
+echo "Starting EVMGRAM 2.0.0 Ultra-Portable..."
+java -jar EVMGRAM-2.0.0-ultra-portable.jar --debug
 """)
         val readmeFile = buildDir.resolve("README-PORTABLE.txt")
         readmeFile.writeText("""
-Solgram 2.0.0 Ultra-Portable (~35-50 MB)
+EVMGRAM 2.0.0 Ultra-Portable (~35-50 MB)
 ========================================
 Smallest portable version - requires Java 17 installed!
 
@@ -212,17 +209,16 @@ Requirements:
 - Check: java -version should show 17+
 
 How to run:
-- Windows: Double-click run.bat or run: java -jar Solgram-2.0.0-ultra-portable.jar
-- Linux/Mac: ./run.sh or java -jar Solgram-2.0.0-ultra-portable.jar
+- Windows: Double-click run.bat or run: java -jar EVMGRAM-2.0.0-ultra-portable.jar
+- Linux/Mac: ./run.sh or java -jar EVMGRAM-2.0.0-ultra-portable.jar
 
-Logs: %APPDATA%/Solgram/solgram.log (Windows) or ~/.solgram/solgram.log (Linux)
+Logs: %APPDATA%/EVMGRAM/evmgram.log
 
-For full portable with bundled JVM (no Java needed, ~70-85 MB):
-Use Solgram-2.0.0-portable.zip (from createDistributable)
+For full portable with bundled JVM (~70-85 MB):
+Use EVMGRAM-2.0.0-portable.zip
 
-For installer (95-110 MB):
-Use Solgram-2.0.0.msi
-
+For installer:
+Use EVMGRAM-2.0.0.msi
 """.trimIndent())
     }
     

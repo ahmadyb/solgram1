@@ -96,8 +96,8 @@ class LocalApiServer(
 
                 get("/docs") {
                     val docs = """
-                        <html><head><title>Solgram Local API Docs</title></head><body>
-                        <h1>Solgram Local API 2.0.0</h1>
+                        <html><head><title>EVMGRAM Local API Docs</title></head><body>
+                        <h1>EVMGRAM Local API 2.0.0</h1>
                         <p>Bound to 127.0.0.1 only - hard-coded, never public</p>
                         <p>Bearer token: <code>${bearerToken.take(8)}... (full in app)</code></p>
                         <h2>Endpoints</h2>

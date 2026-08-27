@@ -47,8 +47,8 @@ import java.nio.file.Path
 import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
-    val logDir = File(System.getProperty("user.home"), "AppData/Roaming/Solgram").apply { mkdirs() }
-    val logFile = File(logDir, "solgram.log")
+    val logDir = File(System.getProperty("user.home"), "AppData/Roaming/EVMGRAM").apply { mkdirs() }
+    val logFile = File(logDir, "evmgram.log")
     
     fun log(msg: String) {
         try {
@@ -68,7 +68,7 @@ fun main(args: Array<String>) {
 
     try {
         val timestamp = java.time.Instant.now().toString()
-        logFile.appendText("[$timestamp] Solgram 2.0.0 starting with args: ${args.joinToString()}\n")
+        logFile.appendText("[$timestamp] EVMGRAM 2.0.0 starting with args: ${args.joinToString()}\n")
         logFile.appendText("[$timestamp] Java: ${System.getProperty("java.version")} OS: ${System.getProperty("os.name")} Arch: ${System.getProperty("os.arch")}\n")
         logFile.appendText("[$timestamp] User dir: ${System.getProperty("user.dir")} Home: ${System.getProperty("user.home")}\n")
         if ("--debug" in args) {
@@ -92,8 +92,8 @@ fun main(args: Array<String>) {
 
         if (debug) System.setProperty("solgram.debug", "true")
 
-        val appDir = File(System.getProperty("user.home"), "AppData/Roaming/Solgram").apply { mkdirs() }.toPath()
-        val lockFile = File(appDir.toFile(), "solgram.lock")
+        val appDir = File(System.getProperty("user.home"), "AppData/Roaming/EVMGRAM").apply { mkdirs() }.toPath()
+        val lockFile = File(appDir.toFile(), "evmgram.lock")
 
         log("App dir: $appDir")
         log("Phase: SingleInstanceGuard")
@@ -116,7 +116,7 @@ fun main(args: Array<String>) {
         Doctor.endPhase("AppInit")
         Doctor.startPhase("Database")
 
-        val dbFile = File(appDir.toFile(), "solgram.db")
+        val dbFile = File(appDir.toFile(), "evmgram.db")
         log("DB file: $dbFile")
         val driver = try {
             DatabaseFactory.createDriver(dbFile)
@@ -221,7 +221,7 @@ fun main(args: Array<String>) {
                         exitApplication()
                     }
                 },
-                title = "Solgram 2.0.0",
+                title = "EVMGRAM 2.0.0",
                 state = windowState,
                 undecorated = !nativeFrame
             ) {
@@ -407,7 +407,7 @@ fun main(args: Array<String>) {
             val ts = java.time.Instant.now().toString()
             logFile.appendText("[$ts] FATAL CRASH: ${e.message}\n${e.stackTraceToString()}\n")
             e.printStackTrace()
-            javax.swing.JOptionPane.showMessageDialog(null, "Solgram crashed:\n${e.message}\n\nSee %APPDATA%\\Solgram\\solgram.log\n${e.stackTraceToString().take(2000)}", "Solgram Error", javax.swing.JOptionPane.ERROR_MESSAGE)
+            javax.swing.JOptionPane.showMessageDialog(null, "EVMGRAM crashed:\n${e.message}\n\nSee %APPDATA%\\EVMGRAM\\evmgram.log\n${e.stackTraceToString().take(2000)}", "EVMGRAM Error", javax.swing.JOptionPane.ERROR_MESSAGE)
         } catch (_: Exception) {}
         throw e
     }

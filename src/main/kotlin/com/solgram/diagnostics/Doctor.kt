@@ -20,7 +20,7 @@ object Doctor {
     private val startupPhases = mutableListOf<StartupPhase>()
     private var startupStart = System.currentTimeMillis()
     private val historyFile: File by lazy {
-        File(System.getProperty("user.home"), "AppData/Roaming/Solgram/startup_history.json").apply { parentFile?.mkdirs() }
+        File(System.getProperty("user.home"), "AppData/Roaming/EVMGRAM/startup_history.json").apply { parentFile?.mkdirs() }
     }
 
     fun startPhase(name: String) {
@@ -91,7 +91,7 @@ object Doctor {
 
     private fun checkAppDataWritable(): Boolean {
         return try {
-            val dir = File(System.getProperty("user.home"), "AppData/Roaming/Solgram")
+            val dir = File(System.getProperty("user.home"), "AppData/Roaming/EVMGRAM")
             dir.mkdirs()
             dir.canWrite()
         } catch (e: Exception) {
@@ -103,7 +103,7 @@ object Doctor {
         return DoctorReport(
             startupHistory = loadHistory(),
             envChecks = envCheck(),
-            dbSize = File(System.getProperty("user.home"), "AppData/Roaming/Solgram/solgram.db").length(),
+            dbSize = File(System.getProperty("user.home"), "AppData/Roaming/EVMGRAM/evmgram.db").length(),
             lastErrors = emptyList()
         )
     }
@@ -111,28 +111,34 @@ object Doctor {
     fun handleFlags(args: Array<String>) {
         if ("--repair" in args) {
             println("Doctor: --repair flag detected, will repair DB before migrations")
-            System.setProperty("solgram.repair", "true")
+            System.setProperty("evmgram.repair", "true")
         }
         if ("--reset-db" in args) {
             println("Doctor: --reset-db flag, will recreate DB")
-            val dbFile = File(System.getProperty("user.home"), "AppData/Roaming/Solgram/solgram.db")
+            val dbFile = File(System.getProperty("user.home"), "AppData/Roaming/EVMGRAM/evmgram.db")
             if (dbFile.exists()) {
-                val backup = File(dbFile.parent, "solgram.db.backup.${System.currentTimeMillis()}")
+                val backup = File(dbFile.parent, "evmgram.db.backup.${System.currentTimeMillis()}")
                 dbFile.renameTo(backup)
                 println("Moved old DB to $backup")
+            }
+            // Also clean old Solgram DB if exists
+            val oldDbFile = File(System.getProperty("user.home"), "AppData/Roaming/Solgram/solgram.db")
+            if (oldDbFile.exists()) {
+                println("Old Solgram DB found at $oldDbFile - will be migrated on next run")
             }
         }
         if ("--unlock" in args) {
             println("Doctor: --unlock flag, clearing single-instance lock")
-            val lockFile = File(System.getProperty("user.home"), "AppData/Roaming/Solgram/solgram.lock")
+            val lockFile = File(System.getProperty("user.home"), "AppData/Roaming/EVMGRAM/evmgram.lock")
             if (lockFile.exists()) {
-                // Only clear if not genuinely running - liveness check
                 lockFile.delete()
                 println("Lock cleared")
             }
+            val oldLock = File(System.getProperty("user.home"), "AppData/Roaming/Solgram/solgram.lock")
+            if (oldLock.exists()) oldLock.delete()
         }
         if ("--no-repair" in args) {
-            System.setProperty("solgram.no-repair", "true")
+            System.setProperty("evmgram.no-repair", "true")
         }
     }
 }
