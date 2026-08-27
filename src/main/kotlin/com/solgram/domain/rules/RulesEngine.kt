@@ -1,8 +1,8 @@
 package com.solgram.domain.rules
 
 import com.solgram.domain.detect.CaDetector
-import com.solgram.domain.detect.Chain
 import com.solgram.domain.detect.Detection
+import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 
 @JvmInline
@@ -24,6 +24,7 @@ data class ForwardRule(
     val conditions: List<RuleCondition> = emptyList()
 )
 
+@Serializable
 enum class ExtractionMode { FULL, CA, REGEX }
 
 @Serializable
@@ -35,9 +36,13 @@ data class RuleCondition(
 @Serializable
 data class RuleRef(val ruleId: String)
 
+@Serializable
 sealed class ChainRequirement {
+    @Serializable
     data class RuleFired(val ruleId: String, val withinSeconds: Int) : ChainRequirement()
+    @Serializable
     data class AddressNotInDb(val ruleId: String) : ChainRequirement()
+    @Serializable
     data class MinTrust(val ruleId: String, val trust: Int) : ChainRequirement()
 }
 
@@ -69,7 +74,6 @@ object RulesEngine {
             return FireResult.Skip(rule, "Trust $trust < min ${rule.minTrust}")
         }
 
-        // Check send interval
         val lastSend = recentSends.filter { it.ruleId == rule.id }.maxByOrNull { it.timestamp }
         if (lastSend != null) {
             val elapsedMs = (now - lastSend.timestamp) * 1000
@@ -80,7 +84,6 @@ object RulesEngine {
 
         val detections = CaDetector.detect(messageText)
 
-        // Extraction mode handling
         val contentToSend: String? = when (rule.extractionMode) {
             ExtractionMode.FULL -> {
                 if (rule.prefix.isNotBlank()) "${rule.prefix}\n\n$messageText" else messageText
@@ -103,7 +106,6 @@ object RulesEngine {
             }
         }
 
-        // Duplicate window check for CA mode
         if (rule.extractionMode == ExtractionMode.CA) {
             for (det in detections) {
                 val duplicate = recentSends.any {
@@ -117,7 +119,6 @@ object RulesEngine {
             }
         }
 
-        // Conditional chain evaluation
         for (condition in rule.conditions) {
             val chainResult = evaluateChainCondition(condition, recentSends, existingAddresses, now)
             if (!chainResult) {
@@ -143,13 +144,11 @@ object RulesEngine {
                     if (!fired) return false
                 }
                 is ChainRequirement.AddressNotInDb -> {
-                    // If any recent address for this rule is already in DB, fail
                     val recentAddresses = recentSends.filter { it.ruleId == req.ruleId }.mapNotNull { it.address }
                     if (recentAddresses.any { it in existingAddresses }) return false
                 }
                 is ChainRequirement.MinTrust -> {
-                    // Trust check already done, but chain can require different trust
-                    // This would need trust map - simplified to pass
+                    // Trust check simplified
                 }
             }
         }

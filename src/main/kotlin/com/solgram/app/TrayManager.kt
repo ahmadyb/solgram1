@@ -1,9 +1,11 @@
 package com.solgram.app
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.window.Tray
-import androidx.compose.ui.window.rememberTrayState
-import java.awt.SystemTray
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.res.painterResource
+import java.awt.*
+import java.awt.event.ActionListener
+import javax.imageio.ImageIO
 
 @Composable
 fun TrayManager(
@@ -13,17 +15,55 @@ fun TrayManager(
 ) {
     if (!SystemTray.isSupported()) return
 
-    val trayState = rememberTrayState()
+    DisposableEffect(Unit) {
+        val tray = SystemTray.getSystemTray()
 
-    Tray(
-        state = trayState,
-        icon = androidx.compose.ui.res.painterResource("icon.png"),
-        menu = {
-            Item("Show Solgram", onClick = onShow)
-            Item("Pause/Resume automation", onClick = onPauseResume)
-            Separator()
-            Item("Quit", onClick = onQuit)
-        },
-        tooltip = "Solgram 2.0.0"
-    )
+        // Create image from resources - fallback to empty image if not found
+        val image: Image = try {
+            val url = object {}.javaClass.getResource("/icon.png")
+            if (url != null) {
+                ImageIO.read(url)
+            } else {
+                // Fallback 16x16 empty image
+                val img = java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB)
+                img
+            }
+        } catch (e: Exception) {
+            java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB)
+        }
+
+        val popup = PopupMenu()
+
+        val showItem = MenuItem("Show Solgram")
+        showItem.addActionListener { onShow() }
+        popup.add(showItem)
+
+        val pauseItem = MenuItem("Pause/Resume automation")
+        pauseItem.addActionListener { onPauseResume() }
+        popup.add(pauseItem)
+
+        popup.addSeparator()
+
+        val quitItem = MenuItem("Quit")
+        quitItem.addActionListener { onQuit() }
+        popup.add(quitItem)
+
+        val trayIcon = TrayIcon(image, "Solgram 2.0.0", popup)
+        trayIcon.isImageAutoSize = true
+        trayIcon.addActionListener { onShow() }
+
+        try {
+            tray.add(trayIcon)
+        } catch (e: Exception) {
+            println("Failed to add tray icon: ${e.message}")
+        }
+
+        onDispose {
+            try {
+                tray.remove(trayIcon)
+            } catch (e: Exception) {
+                // ignore
+            }
+        }
+    }
 }

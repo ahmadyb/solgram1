@@ -6,12 +6,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicLong
-import kotlin.io.path.resolve
 
-/**
- * TDLib is the ONLY native dependency, isolated behind this single file.
- * Nothing else in the application references TDLib types directly.
- */
 interface TdJsonLibrary : Library {
     fun td_json_client_create(): Long
     fun td_json_client_destroy(client: Long)
@@ -40,7 +35,6 @@ class TdLibEngine(
     private val isMock = checkMockMode()
 
     private fun checkMockMode(): Boolean {
-        // If libtdjson.dll not found, run in mock mode for development
         val dllPath = appDir.resolve("libtdjson.dll")
         val soPath = appDir.resolve("libtdjson.so")
         val dylibPath = appDir.resolve("libtdjson.dylib")
@@ -60,7 +54,6 @@ class TdLibEngine(
                 dll.toFile().exists() -> System.load(dll.toAbsolutePath().toString())
                 so.toFile().exists() -> System.load(so.toAbsolutePath().toString())
                 else -> {
-                    // Try JNA auto-load
                     tdLib = Native.load("tdjson", TdJsonLibrary::class.java) as TdJsonLibrary
                     return
                 }
@@ -89,7 +82,6 @@ class TdLibEngine(
         withContext(Dispatchers.IO) {
             clientId = tdLib!!.td_json_client_create()
             _connectionState.value = ConnectionState.CONNECTING
-            // Send initial params
             val params = """
                 {
                     "@type": "setTdlibParameters",
@@ -123,7 +115,6 @@ class TdLibEngine(
     }
 
     private fun handleTdResponse(json: String) {
-        // Simplified parsing - real implementation would parse TDLib updates
         if (json.contains("authorizationStateReady")) {
             _authState.value = AuthState.READY
             _connectionState.value = ConnectionState.READY
@@ -133,8 +124,6 @@ class TdLibEngine(
             _authState.value = AuthState.WAIT_PASSWORD
         } else if (json.contains("authorizationStateWaitPhoneNumber")) {
             _authState.value = AuthState.WAIT_PHONE_NUMBER
-        } else if (json.contains("authorizationStateWaitQrCode")) {
-            // QR handled in flow
         }
     }
 
@@ -149,9 +138,7 @@ class TdLibEngine(
             return@flow
         }
         emit(QrLoginState.WAITING_QR)
-        // Real TDLib QR flow would go here
         tdLib?.td_json_client_send(clientId, """{"@type":"requestQrCodeAuthentication"}""")
-        // Simulate waiting
         delay(1000)
         emit(QrLoginState.CONFIRMING)
     }
@@ -214,14 +201,12 @@ class TdLibEngine(
     }
 
     override suspend fun listActiveSessions(): List<TelegramSession> {
-        // Mock data for development
         return if (isMock) {
             listOf(
                 TelegramSession(1, true, "Solgram Desktop", "Windows", "11", System.currentTimeMillis()/1000, System.currentTimeMillis()/1000, "192.168.1.1", "US"),
                 TelegramSession(2, false, "Telegram Desktop", "Windows", "11", System.currentTimeMillis()/1000 - 86400, System.currentTimeMillis()/1000 - 3600, "10.0.0.2", "DE")
             )
         } else {
-            // Real implementation would query TDLib
             emptyList()
         }
     }
@@ -281,10 +266,9 @@ class TdLibEngine(
             "Check this gem: 7xKXtt2KhsU7p2a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a",
             "New call: 0x1234567890abcdef1234567890abcdef12345678 looks promising",
             "What do you think about this one? So11111111111111111111111111111111111111112",
-            "Just bought some, looks like it's going to moon 🚀",
+            "Just bought some, looks like it's going to moon",
             "Caution: this looks like a rug, liquidity pulled",
             "Another one: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v - USDC",
-            "https://dexscreener.com/solana/7xKXtt2KhsU7p2a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a",
             "Team is doxxed, audit passed"
         )
         return samples.random()
@@ -317,14 +301,7 @@ class TdLibEngine(
     override suspend fun setTyping(chatId: Long): SolgramResult<Unit> = Unit.asSuccess()
     override suspend fun downloadFile(fileId: Int): SolgramResult<String> = "/tmp/file_$fileId".asSuccess()
 
-    // This is the ONLY place where nativeForward-like logic is allowed
-    // Enforced by detekt rule NoForwardMessagesRule
     override suspend fun forwardAsNew(destinationChatId: Long, text: String, mediaPath: String?): SolgramResult<Message> {
-        // Forward as new always re-sends via sendMessage, never uses TDLib's native forward
         return sendMessage(destinationChatId, text)
     }
 }
-
-// Allow-listed file marker for detekt rule
-// File: ForwardAsNewAllowlist.kt - this file is the only one allowed to reference nativeForward
-// In this implementation, we never use nativeForward, we always re-send via sendMessage

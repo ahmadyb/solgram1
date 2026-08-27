@@ -6,7 +6,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import kotlin.math.*
 
 enum class BackdropType {
     PLAIN,
@@ -19,7 +18,7 @@ enum class BackdropType {
 
 data class BackdropConfig(
     val type: BackdropType = BackdropType.DRAGON_SCALE,
-    val intensity: Float = 1.0f, // 0-2.0 (0-200%)
+    val intensity: Float = 1.0f,
     val perChatOverride: Map<Long, BackdropType> = emptyMap()
 )
 
@@ -27,9 +26,6 @@ object BackdropRenderer {
     private val cache = mutableMapOf<Pair<SolgramTheme, BackdropType>, ImageBitmap>()
 
     fun render(theme: SolgramTheme, type: BackdropType, intensity: Float): ImageBitmap? {
-        // Each rendered once per (theme, intensity) to cached ImageBitmap
-        // Blitted behind message list without recomputed per scroll frame
-        // Simplified - real would render pattern
         return cache[theme to type]
     }
 
@@ -54,23 +50,27 @@ fun BackdropCanvas(
             }
             BackdropType.DRAGON_SCALE -> {
                 drawRect(colors.background)
-                // Dragon scale pattern - simplified
                 val scale = 40f * intensity
-                for (x in 0..size.width.toInt() step scale.toInt()) {
-                    for (y in 0..size.height.toInt() step (scale * 0.866).toInt()) {
-                        val offsetX = if ((y / scale).toInt() % 2 == 0) 0f else scale / 2
+                val step = scale.toInt().coerceAtLeast(1)
+                var x = 0
+                while (x <= size.width.toInt()) {
+                    var y = 0
+                    while (y <= size.height.toInt()) {
+                        val offsetX = if ((y / scale).toInt() % 2 == 0) 0f else scale / 2f
                         drawCircle(
                             color = colors.surface.copy(alpha = 0.1f * intensity),
-                            radius = scale / 3,
+                            radius = scale / 3f,
                             center = Offset(x + offsetX, y.toFloat())
                         )
+                        y += (scale * 0.866f).toInt().coerceAtLeast(1)
                     }
+                    x += step
                 }
             }
             BackdropType.ICE -> {
                 drawRect(colors.background)
-                // Ice crystal pattern
-                for (i in 0..(20 * intensity).toInt()) {
+                val count = (20f * intensity).toInt()
+                for (i in 0..count) {
                     val x = (i * 137.5f) % size.width
                     val y = (i * 73.3f) % size.height
                     drawCircle(
@@ -83,25 +83,31 @@ fun BackdropCanvas(
             BackdropType.DRAGON_SCALE_COLOUR -> {
                 drawRect(colors.background)
                 val scale = 40f * intensity
-                for (x in 0..size.width.toInt() step scale.toInt()) {
-                    for (y in 0..size.height.toInt() step (scale * 0.866).toInt()) {
-                        val hue = (x + y) % 360
+                val step = scale.toInt().coerceAtLeast(1)
+                var x = 0
+                while (x <= size.width.toInt()) {
+                    var y = 0
+                    while (y <= size.height.toInt()) {
+                        val hue = ((x + y) % 360).toFloat()
                         drawCircle(
                             color = Color.hsv(hue, 0.3f, 0.8f).copy(alpha = 0.15f * intensity),
-                            radius = scale / 3,
+                            radius = scale / 3f,
                             center = Offset(x.toFloat(), y.toFloat())
                         )
+                        y += step
                     }
+                    x += step
                 }
             }
             BackdropType.ICE_COLOUR -> {
                 drawRect(colors.background)
-                // Colourful ice
-                for (i in 0..(20 * intensity).toInt()) {
+                val count = (20f * intensity).toInt()
+                for (i in 0..count) {
                     val x = (i * 137.5f) % size.width
                     val y = (i * 73.3f) % size.height
+                    val hue = ((i * 37) % 360).toFloat()
                     drawCircle(
-                        color = Color.hsv((i * 37) % 360f, 0.5f, 1f).copy(alpha = 0.08f * intensity),
+                        color = Color.hsv(hue, 0.5f, 1f).copy(alpha = 0.08f * intensity),
                         radius = 3f,
                         center = Offset(x, y)
                     )
@@ -109,11 +115,13 @@ fun BackdropCanvas(
             }
             BackdropType.PEACOCK_FEATHER -> {
                 drawRect(colors.background)
-                // Peacock feather pattern
-                for (x in 0..size.width.toInt() step 60) {
-                    for (y in 0..size.height.toInt() step 60) {
+                var x = 0
+                while (x <= size.width.toInt()) {
+                    var y = 0
+                    while (y <= size.height.toInt()) {
+                        val hue1 = (180f + (x % 60).toFloat()) % 360f
                         drawCircle(
-                            color = Color.hsv(180f + (x % 60), 0.6f, 0.8f).copy(alpha = 0.1f * intensity),
+                            color = Color.hsv(hue1, 0.6f, 0.8f).copy(alpha = 0.1f * intensity),
                             radius = 20f,
                             center = Offset(x.toFloat(), y.toFloat())
                         )
@@ -122,7 +130,9 @@ fun BackdropCanvas(
                             radius = 5f,
                             center = Offset(x.toFloat(), y.toFloat())
                         )
+                        y += 60
                     }
+                    x += 60
                 }
             }
         }

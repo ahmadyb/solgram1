@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 data class ChannelTrust(
     val channelId: Long,
     val channelName: String,
-    val currentTrust: Int, // 1-5 stars
+    val currentTrust: Int,
     val suggestedTrust: Int? = null,
     val suggestionReason: String? = null,
     val lastManualSetAt: Long = 0,
@@ -51,16 +51,11 @@ class ReputationEngine {
             avgAthMultiple = existing?.avgAthMultiple ?: 0.0
         )
         _trustMap.value = current
-        // Clear suggestion if recently manually set
         if (existing?.suggestedTrust != null) {
             _suggestions.value = _suggestions.value.filter { it.channelId != channelId }
         }
     }
 
-    /**
-     * Computes suggested trust adjustment from realized call-performance over rolling window
-     * Suggestions appear as hint, nothing changes automatically
-     */
     fun computeSuggestions(
         performancesByChannel: Map<Long, List<CallPerformance>>,
         windowDays: Int = 30
@@ -71,7 +66,7 @@ class ReputationEngine {
 
         for ((channelId, perfs) in performancesByChannel) {
             val recent = perfs.filter { it.firstCallAt >= windowStart }
-            if (recent.size < 5) continue // Need minimum data
+            if (recent.size < 5) continue
 
             val hitRate = recent.count { it.hit2x }.toDouble() / recent.size
             val avgMultiple = recent.mapNotNull { it.athMultiple }.average().takeIf { !it.isNaN() } ?: 0.0
@@ -83,18 +78,18 @@ class ReputationEngine {
                 else -> currentTrust
             }
 
+            val reasonText = "Last $windowDays days: ${(hitRate*100).toInt()}% hit 2x, avg ${"%.2f".format(avgMultiple)}x ATH, ${recent.size} calls"
+
             if (suggested != currentTrust) {
-                val reason = "Last $windowDays days: ${(hitRate*100).toInt()}% hit 2x, avg ${"%.2f".format(avgMultiple)}x ATH, ${recent.size} calls"
-                suggestions.add(TrustSuggestion(channelId, currentTrust, suggested, reason, windowDays))
+                suggestions.add(TrustSuggestion(channelId, currentTrust, suggested, reasonText, windowDays))
             }
 
-            // Update trust map with stats
             val currentMap = _trustMap.value.toMutableMap()
             val existing = currentMap[channelId]
             if (existing != null) {
                 currentMap[channelId] = existing.copy(
                     suggestedTrust = if (suggested != currentTrust) suggested else null,
-                    suggestionReason = if (suggested != currentTrust) "suggested: $suggested★ (was $currentTrust★) - $reason" else null,
+                    suggestionReason = if (suggested != currentTrust) "suggested: $suggested★ (was $currentTrust★) - $reasonText" else null,
                     totalCalls = recent.size,
                     hitRate2x = hitRate,
                     avgAthMultiple = avgMultiple
@@ -105,7 +100,7 @@ class ReputationEngine {
                     channelName = "Channel $channelId",
                     currentTrust = currentTrust,
                     suggestedTrust = if (suggested != currentTrust) suggested else null,
-                    suggestionReason = if (suggested != currentTrust) "suggested: $suggested★ (was $currentTrust★)" else null,
+                    suggestionReason = if (suggested != currentTrust) "suggested: $suggested★ (was $currentTrust★) - $reasonText" else null,
                     totalCalls = recent.size,
                     hitRate2x = hitRate,
                     avgAthMultiple = avgMultiple
