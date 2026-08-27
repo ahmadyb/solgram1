@@ -17,6 +17,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+          lfs: true
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -27,25 +28,24 @@ jobs:
       - name: Build MSI only
         run: .\gradlew.bat packageMsi --no-daemon
         shell: powershell
-      - name: Create dist folder (MSI only)
-        run: |
-          mkdir dist -Force
-          Remove-Item -Path dist\*.exe -Force -ErrorAction SilentlyContinue
-          Remove-Item -Path dist\*.zip -Force -ErrorAction SilentlyContinue
-          Copy-Item -Path build\compose\binaries\main\msi\*.msi -Destination dist\ -Force
-          dir dist\
+      - name: List MSI
+        run: dir build\compose\binaries\main\msi\
         shell: powershell
-      - name: Commit installer back
-        run: |
-          git config user.name "Solgram Builder"
-          git config user.email "builder@solgram.local"
-          git add dist/ -f
-          try { git commit -m "Add built MSI installer [skip ci]" } catch { echo "No changes" }
-          git push origin HEAD:arena/01a03fdc-solgram1
-        shell: powershell
-      - uses: actions/upload-artifact@v4
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
         with:
           name: solgram-installer-msi
-          path: |
-            build/compose/binaries/main/msi/*.msi
-            dist/*.msi
+          path: build/compose/binaries/main/msi/*.msi
+      - name: Create GitHub Release with MSI
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v2.0.0-msi-${{ github.run_number }}
+          name: Solgram 2.0.0 MSI
+          body: |
+            Solgram 2.0.0 - Native Kotlin Telegram Client
+            Built on windows-latest with JDK 17 + WiX
+            Commit: ${{ github.sha }}
+            File: Solgram-2.0.0.msi (122 MB, JVM bundled)
+          files: build/compose/binaries/main/msi/*.msi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
