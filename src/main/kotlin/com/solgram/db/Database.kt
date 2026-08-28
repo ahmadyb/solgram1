@@ -31,48 +31,20 @@ object DatabaseFactory {
 
     fun createDatabase(driver: JdbcSqliteDriver): SolgramDb {
         try {
-            // Check if tables already exist by querying sqlite_master
-            val existingTables = try {
-                driver.executeQuery(null, "SELECT name FROM sqlite_master WHERE type='table' AND name='chat'", { cursor ->
-                    var count = 0
-                    while (cursor.next().value) count++
-                    count
-                }, 0).value
-            } catch (e: Exception) {
-                0
-            }
-            
-            if (existingTables > 0) {
-                println("DB already exists with tables, skipping creation - ensuring all tables exist")
-                // Ensure all tables exist with IF NOT EXISTS
-                try {
-                    SolgramDb.Schema.create(driver)
-                } catch (e: Exception) {
-                    if (e.message?.contains("already exists") != true) {
-                        println("Schema ensure failed: ${e.message}")
-                    }
-                }
-            } else {
-                println("Creating new database schema")
-                SolgramDb.Schema.create(driver)
-            }
+            println("Creating/ensuring database schema (IF NOT EXISTS)")
+            SolgramDb.Schema.create(driver)
+            println("Database schema ready")
         } catch (e: Exception) {
             val msg = e.message ?: ""
-            if (msg.contains("already exists")) {
+            if (msg.contains("already exists", ignoreCase = true)) {
                 println("Tables already exist, continuing: ${e.message}")
             } else {
-                println("DB creation error: ${e.message} - attempting repair")
-                // If DB is corrupted, try to recreate
+                println("DB creation note: ${e.message}")
                 try {
-                    // Try to drop and recreate with IF NOT EXISTS (now safe)
                     SolgramDb.Schema.create(driver)
                 } catch (e2: Exception) {
-                    if (e2.message?.contains("already exists") == true) {
-                        println("Tables already exist after repair attempt, continuing")
-                    } else {
-                        println("Repair failed: ${e2.message} - will try to use existing DB as-is")
-                        // Last resort: try to continue even if schema creation fails
-                        // The DB might still be usable for queries
+                    if (e2.message?.contains("already exists", ignoreCase = true) != true) {
+                        println("Second create attempt: ${e2.message}")
                     }
                 }
             }
