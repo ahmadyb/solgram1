@@ -1,52 +1,104 @@
 name: build
 on:
   push:
-    branches: ['arena/*', main]
+    branches:
+      - 'arena/*'
+      - main
   workflow_dispatch:
-permissions: { contents: write }
+
+permissions:
+  contents: write
+
 jobs:
   package:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0, token: ${{ secrets.GITHUB_TOKEN }}, lfs: true }
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          lfs: true
+
       - uses: actions/setup-java@v4
-        with: { distribution: 'temurin', java-version: '17' }
-      - run: choco install wixtoolset -y
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install WiX
+        run: choco install wixtoolset -y
         shell: powershell
+
       - name: Build MSI
         run: .\gradlew.bat packageMsi --no-daemon
         shell: powershell
+
       - name: Build Portable
         run: .\gradlew.bat createDistributable --no-daemon
         shell: powershell
+
       - name: Build Ultra-Portable
         run: .\gradlew.bat ultraPortableJar --no-daemon
         shell: powershell
+
       - name: Create ZIPs
         run: |
           $distDir = "build/compose/binaries/main/app"
-          if (Test-Path $distDir) { Compress-Archive -Path "$distDir\*" -DestinationPath "build/EVMGRAM-2.0.0-portable.zip" -Force }
+          $portableZip = "build/EVMGRAM-2.0.0-portable.zip"
+          if (Test-Path $distDir) {
+            Compress-Archive -Path "$distDir\*" -DestinationPath $portableZip -Force
+            $size = (Get-Item $portableZip).Length / 1MB
+            Write-Host "Portable ZIP size: $size MB"
+          }
           $ultraJar = "build/libs/EVMGRAM-2.0.0-ultra-portable.jar"
-          if (Test-Path $ultraJar) { Compress-Archive -Path $ultraJar -DestinationPath "build/EVMGRAM-2.0.0-ultra-portable.zip" -Force }
-          dir build/*.zip; dir build/compose/binaries/main/msi/
+          $ultraZip = "build/EVMGRAM-2.0.0-ultra-portable.zip"
+          if (Test-Path $ultraJar) {
+            Compress-Archive -Path $ultraJar -DestinationPath $ultraZip -Force
+            $size = (Get-Item $ultraZip).Length / 1MB
+            Write-Host "Ultra-Portable ZIP size: $size MB"
+          }
+          Write-Host "=== Files ==="
+          Get-ChildItem build/*.zip -ErrorAction SilentlyContinue
+          Get-ChildItem build/compose/binaries/main/msi/ -ErrorAction SilentlyContinue
         shell: powershell
-      - uses: actions/upload-artifact@v4
-        with: { name: evmgram-installer-msi, path: build/compose/binaries/main/msi/*.msi }
-      - uses: actions/upload-artifact@v4
-        with: { name: evmgram-portable-zip, path: build/EVMGRAM-2.0.0-portable.zip }
-      - uses: actions/upload-artifact@v4
-        with: { name: evmgram-ultra-portable-zip, path: build/EVMGRAM-2.0.0-ultra-portable.zip }
-      - uses: softprops/action-gh-release@v1
+
+      - name: Upload MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: evmgram-installer-msi
+          path: build/compose/binaries/main/msi/*.msi
+
+      - name: Upload Portable
+        uses: actions/upload-artifact@v4
+        with:
+          name: evmgram-portable-zip
+          path: build/EVMGRAM-2.0.0-portable.zip
+
+      - name: Upload Ultra-Portable
+        uses: actions/upload-artifact@v4
+        with:
+          name: evmgram-ultra-portable-zip
+          path: build/EVMGRAM-2.0.0-ultra-portable.zip
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: v2.0.0-msi-${{ github.run_number }}
           name: EVMGRAM 2.0.0 - MSI + Portable + Ultra
           body: |
             EVMGRAM 2.0.0 - Fixed DB crash + Renamed from Solgram
-            3 downloads: MSI ~70-85MB, Portable ~70-85MB, Ultra ~35-50MB (requires Java 17)
+
+            3 downloads:
+            1. EVMGRAM-2.0.0.msi ~70-85 MB (installer, bundled JVM)
+            2. EVMGRAM-2.0.0-portable.zip ~70-85 MB (extract and run, bundled JVM)
+            3. EVMGRAM-2.0.0-ultra-portable.zip ~35-50 MB (requires Java 17, smallest!)
+
+            Fix: CREATE TABLE IF NOT EXISTS - no more 'table chat already exists' crash
+            Rename: Solgram -> EVMGRAM
+
             Commit: ${{ github.sha }}
           files: |
             build/compose/binaries/main/msi/*.msi
             build/EVMGRAM-2.0.0-portable.zip
             build/EVMGRAM-2.0.0-ultra-portable.zip
-        env: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
