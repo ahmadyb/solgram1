@@ -1,95 +1,52 @@
 name: build
 on:
   push:
-    branches:
-      - 'arena/*'
-      - main
+    branches: ['arena/*', main]
   workflow_dispatch:
-
-permissions:
-  contents: write
-
+permissions: { contents: write }
 jobs:
   package:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-          lfs: true
+        with: { fetch-depth: 0, token: ${{ secrets.GITHUB_TOKEN }}, lfs: true }
       - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      - name: Install WiX
-        run: choco install wixtoolset -y
+        with: { distribution: 'temurin', java-version: '17' }
+      - run: choco install wixtoolset -y
         shell: powershell
-      
       - name: Build MSI
         run: .\gradlew.bat packageMsi --no-daemon
         shell: powershell
-      
-      - name: Build Portable (bundled JVM)
+      - name: Build Portable
         run: .\gradlew.bat createDistributable --no-daemon
         shell: powershell
-      
-      - name: Build Ultra-Portable (jar only, smallest)
+      - name: Build Ultra-Portable
         run: .\gradlew.bat ultraPortableJar --no-daemon
         shell: powershell
-      
       - name: Create ZIPs
         run: |
           $distDir = "build/compose/binaries/main/app"
-          $portableZip = "build/Solgram-2.0.0-portable.zip"
-          if (Test-Path $distDir) {
-            Compress-Archive -Path "$distDir\*" -DestinationPath $portableZip -Force
-            $s = (Get-Item $portableZip).Length / 1MB
-            Write-Host "Portable ZIP: $s MB"
-          }
-          $ultraJar = "build/libs/Solgram-2.0.0-ultra-portable.jar"
-          $ultraZip = "build/Solgram-2.0.0-ultra-portable.zip"
-          if (Test-Path $ultraJar) {
-            Compress-Archive -Path $ultraJar -DestinationPath $ultraZip -Force
-            $s = (Get-Item $ultraZip).Length / 1MB
-            Write-Host "Ultra-Portable ZIP: $s MB"
-          }
-          dir build/*.zip
-          dir build/compose/binaries/main/msi/
+          if (Test-Path $distDir) { Compress-Archive -Path "$distDir\*" -DestinationPath "build/EVMGRAM-2.0.0-portable.zip" -Force }
+          $ultraJar = "build/libs/EVMGRAM-2.0.0-ultra-portable.jar"
+          if (Test-Path $ultraJar) { Compress-Archive -Path $ultraJar -DestinationPath "build/EVMGRAM-2.0.0-ultra-portable.zip" -Force }
+          dir build/*.zip; dir build/compose/binaries/main/msi/
         shell: powershell
-      
-      - name: Upload MSI
-        uses: actions/upload-artifact@v4
-        with:
-          name: solgram-installer-msi
-          path: build/compose/binaries/main/msi/*.msi
-      
-      - name: Upload Portable
-        uses: actions/upload-artifact@v4
-        with:
-          name: solgram-portable-zip
-          path: build/Solgram-2.0.0-portable.zip
-      
-      - name: Upload Ultra-Portable
-        uses: actions/upload-artifact@v4
-        with:
-          name: solgram-ultra-portable-zip
-          path: build/Solgram-2.0.0-ultra-portable.zip
-      
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - uses: actions/upload-artifact@v4
+        with: { name: evmgram-installer-msi, path: build/compose/binaries/main/msi/*.msi }
+      - uses: actions/upload-artifact@v4
+        with: { name: evmgram-portable-zip, path: build/EVMGRAM-2.0.0-portable.zip }
+      - uses: actions/upload-artifact@v4
+        with: { name: evmgram-ultra-portable-zip, path: build/EVMGRAM-2.0.0-ultra-portable.zip }
+      - uses: softprops/action-gh-release@v1
         with:
           tag_name: v2.0.0-msi-${{ github.run_number }}
-          name: Solgram 2.0.0 - MSI + Portable + Ultra
+          name: EVMGRAM 2.0.0 - MSI + Portable + Ultra
           body: |
-            3 downloads:
-            1. MSI ~70-85 MB (installer, bundled JVM)
-            2. Portable ~70-85 MB (extract & run, bundled JVM)
-            3. Ultra-Portable ~35-50 MB (requires Java 17, smallest!)
+            EVMGRAM 2.0.0 - Fixed DB crash + Renamed from Solgram
+            3 downloads: MSI ~70-85MB, Portable ~70-85MB, Ultra ~35-50MB (requires Java 17)
             Commit: ${{ github.sha }}
           files: |
             build/compose/binaries/main/msi/*.msi
-            build/Solgram-2.0.0-portable.zip
-            build/Solgram-2.0.0-ultra-portable.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            build/EVMGRAM-2.0.0-portable.zip
+            build/EVMGRAM-2.0.0-ultra-portable.zip
+        env: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
